@@ -13,7 +13,7 @@ from azure.storage.blob import BlobServiceClient
 from TimerTrigger1 import preprocandindex
 
 def save_pickle_to_azure_blob(pickle_data, container_name, blob_name):
-    # Connect to Azure Blob Storage
+    # Create a blob client
     connection_string = "DefaultEndpointsProtocol=https;AccountName=searchenginestrg;AccountKey=LB3Y3pG2mzMkxYzE6M8fBHuspzJTOTR+NZlm3Dv29jSsAszGmY111rLntxYAsZR82p/Wh3y/jGZ2+AStWWThUQ==;EndpointSuffix=core.windows.net"
     blob_service_client = BlobServiceClient.from_connection_string(connection_string)
 
@@ -23,6 +23,27 @@ def save_pickle_to_azure_blob(pickle_data, container_name, blob_name):
     # Save the pickle data to Azure Blob Storage
     blob_client = container_client.get_blob_client(blob_name)
     blob_client.upload_blob(pickle_data, overwrite=True)
+
+def save_function(article_list):
+    """Data Saved in Json"""
+    
+    # Create a connection to your Azure Blob storage account
+    blob_service_client = BlobServiceClient.from_connection_string("DefaultEndpointsProtocol=https;AccountName=searchenginestrg;AccountKey=LB3Y3pG2mzMkxYzE6M8fBHuspzJTOTR+NZlm3Dv29jSsAszGmY111rLntxYAsZR82p/Wh3y/jGZ2+AStWWThUQ==;EndpointSuffix=core.windows.net")
+
+    # Specify the container name
+    container_name = "searchenginepickle"
+
+    # Specify the blob name
+    blob_name = "PublicationData.txt"
+
+    # Convert the article list to JSON
+    article_list_json = json.dumps(article_list)
+
+    # Get the blob client
+    blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+
+    # Upload the JSON data as a blob
+    blob_client.upload_blob(article_list_json, overwrite=True)
 
 
 def get_authors_list(publication_url):
@@ -64,7 +85,7 @@ def webcrawler():
         pgurl = "https://pureportal.coventry.ac.uk/en/organisations/school-of-economics-finance-and-accounting/publications/?page="
         #looping over the site
         
-        for pagenum in range(0,1):
+        for pagenum in range(0,13):
           url=pgurl +str(pagenum)
           print(url)
           page = requests.get(url)
@@ -90,7 +111,7 @@ def webcrawler():
             Datalist.append(paper)
             #print(Datalist)
             #dumping data in json format for later use
-            
+        save_function(Datalist)       
         df=pd.DataFrame(Datalist)
        # save_function(Datalist)
         #print(json.dumps(paper,indent=2))
@@ -100,19 +121,24 @@ def webcrawler():
         idf_scores = preprocandindex.idfCalculator(preprocessed_data)
         scores = preprocandindex.tfidfCalculatorData(preprocessed_data,idf_scores)
         inverted_index_pickle = pickle.dumps(inverted_index)
+        # Serialize the IDF scores object
         idf_scores_pickle = pickle.dumps(idf_scores)
+        # Serialize the scores object
         scores_pickle = pickle.dumps(scores)
-    
+        # Specify the container name
         container_name = "searchenginepickle"
+
         # Save the inverted index pickle to Azure Blob Storage
-        inverted_index_blob_name = "inverted_index.pkl"
+        inverted_index_blob_name = "invertedindex.pickle"
         save_pickle_to_azure_blob(inverted_index_pickle, container_name, inverted_index_blob_name)
+
         # Save the IDF scores pickle to Azure Blob Storage
-        idf_scores_blob_name = "idf_scores.pkl"
+        idf_scores_blob_name = "idfscores.pickle"
         save_pickle_to_azure_blob(idf_scores_pickle, container_name, idf_scores_blob_name)
+
         # Save the TF-IDF scores pickle to Azure Blob Storage
-        scores_blob_name = "scores.pkl"
-        save_pickle_to_azure_blob(scores_pickle, container_name, scores_blob_name) 
+        scores_blob_name = "scores.pickle"
+        save_pickle_to_azure_blob(scores_pickle, container_name, scores_blob_name)
         return df,Datalist
 
     except Exception as e:
